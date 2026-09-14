@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: 250 248 245;
+  --surface: 255 255 255;
+  --border: 231 224 214;
+  --text: 28 25 23;
+  --text-muted: 120 113 108;
+}
+
+.dark {
+  --bg: 20 18 16;
+  --surface: 30 27 24;
+  --border: 55 49 44;
+  --text: 245 242 238;
+  --text-muted: 168 158 150;
+}
+
+html,
+body {
+  background-color: rgb(var(--bg));
+  color: rgb(var(--text));
+}
+
+* {
+  border-color: rgb(var(--border));
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background-color: rgb(217 127 38 / 0.25);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: rgb(var(--border));
+  border-radius: 8px;
+}
+
+/* Focus visibility for accessibility */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid rgb(217 127 38);
+  outline-offset: 2px;
+}
+
+/* ===================== PRINT / A5 INVOICE ===================== */
+@media print {
+  html,
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}
+
+@page {
+  size: A5 portrait;
+  margin: 0;
+}
+
+.invoice-a5 {
+  width: 148mm;
+  min-height: 210mm;
+  background: #ffffff;
+  color: #111111;
+}
