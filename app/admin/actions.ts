@@ -4,63 +4,29 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-/** Confirms the caller is an authenticated admin before any write runs. */
 async function requireAdmin() {
   const supabase = createClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated.");
-
-  const { data: adminRow } = await supabase
-    .from("admins")
-    .select("user_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (!adminRow) throw new Error("Not authorized.");
-  return user;
+  const { data } = await supabase.from("admins").select("user_id").eq("user_id", user.id).maybeSingle();
+  if (!data) throw new Error("Not authorized.");
 }
 
-export async function activateSubscription(subscriptionId: string, extendDays = 30) {
+export async function setUserAccess(userId: string, paid: boolean, accessGranted: boolean) {
   await requireAdmin();
   const admin = createAdminClient();
-  const endDate = new Date(Date.now() + extendDays * 24 * 60 * 60 * 1000).toISOString();
-  await admin
-    .from("subscriptions")
-    .update({ status: "active", start_date: new Date().toISOString(), end_date: endDate, updated_at: new Date().toISOString() })
-    .eq("id", subscriptionId);
-  revalidatePath("/admin");
-}
+  const { data: result, error: userError } = await admin.auth.admin.getUserById(userId);
+  if (userError || !result.user) throw new Error(userError?.message ?? "User not found.");
 
-export async function deactivateSubscription(subscriptionId: string) {
-  await requireAdmin();
-  const admin = createAdminClient();
-  await admin
-    .from("subscriptions")
-    .update({ status: "cancelled", updated_at: new Date().toISOString() })
-    .eq("id", subscriptionId);
-  revalidatePath("/admin");
-}
-
-export async function extendSubscription(subscriptionId: string, days: number) {
-  await requireAdmin();
-  const admin = createAdminClient();
-
-  const { data: current } = await admin
-    .from("subscriptions")
-    .select("end_date")
-    .eq("id", subscriptionId)
-    .maybeSingle();
-
-  const base = current?.end_date && new Date(current.end_date).getTime() > Date.now()
-    ? new Date(current.end_date)
-    : new Date();
-  const newEnd = new Date(base.getTime() + days * 24 * 60 * 60 * 1000).toISOString();
-
-  await admin
-    .from("subscriptions")
-    .update({ status: "active", end_date: newEnd, updated_at: new Date().toISOString() })
-    .eq("id", subscriptionId);
+  const { error } = await admin.from("user_access").upsert({
+    user_id: result.user.id,
+    email: result.user.email ?? "",
+    business_name: result.user.user_metadata?.business_name ?? "",
+    paid,
+    access_granted: accessGranted,
+    paid_at: paid ? new Date().toISOString() : null,
+    updated_at: new Date().toISOString()
+  }, { onConflict: "user_id" });
+  if (error) throw new Error(error.message);
   revalidatePath("/admin");
 }

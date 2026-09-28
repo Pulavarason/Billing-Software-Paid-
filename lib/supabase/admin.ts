@@ -6,8 +6,7 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
  *
  * NEVER import this into any file that ships to the browser. It is only
  * safe to use inside:
- *  - Route Handlers under app/api/** (e.g. the Razorpay webhook)
- *  - Server Actions guarded by an is_admin check (app/admin/actions.ts)
+ *  - Server Components and Server Actions after checking the admins table.
  *
  * SUPABASE_SERVICE_ROLE_KEY must stay out of NEXT_PUBLIC_* env vars.
  */

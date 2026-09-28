@@ -93,6 +93,12 @@ export default function InvoiceTemplate({ bill, settings, innerRef }: InvoiceTem
             <span>- {formatCurrency(bill.discount)}</span>
           </div>
         )}
+        {(bill.deliveryCharge ?? 0) > 0 && (
+          <div className="flex justify-between">
+            <span>Delivery charge</span>
+            <span>{formatCurrency(bill.deliveryCharge)}</span>
+          </div>
+        )}
         <div className="flex justify-between border-t-2 border-black pt-1 text-[14px] font-bold">
           <span>TOTAL</span>
           <span>{formatCurrency(bill.grandTotal)}</span>

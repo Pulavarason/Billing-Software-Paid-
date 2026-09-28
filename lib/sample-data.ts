@@ -100,7 +100,10 @@ export function buildSampleBills(products: Product[]): { bills: Bill[]; nextCoun
       items: def.items,
       subtotal,
       discount: def.discount,
-      grandTotal
+      deliveryCharge: 0,
+      grandTotal,
+      paidAmount: grandTotal,
+      dueAmount: 0
     };
   });
 

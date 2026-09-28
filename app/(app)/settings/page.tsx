@@ -9,7 +9,7 @@ import { BusinessSettings } from "@/lib/types";
 import { StorageError } from "@/lib/storage";
 
 export default function SettingsPage() {
-  const { data, isReady, updateSettings, exportBackup, importBackup, resetDemoData, wipeAllData } =
+  const { data, isReady, updateSettings, exportBackup, exportExcel, importBackup, resetDemoData, wipeAllData } =
     useData();
   const { showToast } = useToast();
 
@@ -218,16 +218,16 @@ export default function SettingsPage() {
 
         <div className="mt-5 flex flex-wrap gap-2">
           <button
-            onClick={exportBackup}
+            onClick={exportExcel}
             className="inline-flex items-center gap-1.5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-4 py-2.5 text-sm font-semibold text-[rgb(var(--text))] shadow-soft transition hover:bg-[rgb(var(--border))]/40"
           >
-            <Download className="h-4 w-4" /> Export Backup
+            <Download className="h-4 w-4" /> Export Excel
           </button>
           <button
             onClick={() => fileInputRef.current?.click()}
             className="inline-flex items-center gap-1.5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-4 py-2.5 text-sm font-semibold text-[rgb(var(--text))] shadow-soft transition hover:bg-[rgb(var(--border))]/40"
           >
-            <Upload className="h-4 w-4" /> Import Backup
+            <Upload className="h-4 w-4" /> Import JSON Backup
           </button>
           <input
             ref={fileInputRef}

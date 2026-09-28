@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Eye, Receipt, Trash2 } from "lucide-react";
+import { Eye, Pencil, Receipt, Trash2 } from "lucide-react";
 import { useData } from "@/context/DataContext";
 import { useToast } from "@/context/ToastContext";
 import SearchInput from "@/components/SearchInput";
@@ -90,6 +90,7 @@ export default function BillsPage() {
                   <th className="px-5 py-3">Date</th>
                   <th className="px-5 py-3">Customer</th>
                   <th className="px-5 py-3 text-right">Amount</th>
+                  <th className="px-5 py-3 text-right">Due</th>
                   <th className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
@@ -106,6 +107,9 @@ export default function BillsPage() {
                     <td className="px-5 py-3.5 text-right font-semibold text-[rgb(var(--text))]">
                       {formatCurrency(bill.grandTotal)}
                     </td>
+                    <td className="px-5 py-3.5 text-right font-semibold text-amber-700 dark:text-amber-400">
+                      {(bill.dueAmount ?? 0) > 0 ? formatCurrency(bill.dueAmount ?? 0) : "—"}
+                    </td>
                     <td className="px-5 py-3.5">
                       <div className="flex justify-end gap-1">
                         <Link
@@ -114,6 +118,13 @@ export default function BillsPage() {
                           className="rounded-lg p-2 text-[rgb(var(--text-muted))] hover:bg-spice-50 hover:text-spice-700 dark:hover:bg-spice-900/30 dark:hover:text-spice-400"
                         >
                           <Eye className="h-4 w-4" />
+                        </Link>
+                        <Link
+                          href={`/bills/${bill.id}/edit`}
+                          aria-label={`Edit bill ${bill.billNumber}`}
+                          className="rounded-lg p-2 text-[rgb(var(--text-muted))] hover:bg-spice-50 hover:text-spice-700 dark:hover:bg-spice-900/30 dark:hover:text-spice-400"
+                        >
+                          <Pencil className="h-4 w-4" />
                         </Link>
                         <button
                           onClick={() => setDeleteTarget(bill)}
@@ -145,6 +156,7 @@ export default function BillsPage() {
                 <div className="mt-1 flex items-center justify-between text-xs text-[rgb(var(--text-muted))]">
                   <span>{formatDateDisplay(bill.date)}</span>
                   <span>{bill.customerName || "\u2014"}</span>
+                  {(bill.dueAmount ?? 0) > 0 && <span className="font-semibold text-amber-700 dark:text-amber-400">Due {formatCurrency(bill.dueAmount ?? 0)}</span>}
                 </div>
               </Link>
             ))}

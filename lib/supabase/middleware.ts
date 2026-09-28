@@ -3,17 +3,18 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const PUBLIC_PATHS = ["/login", "/signup", "/auth"];
 const ADMIN_PATH = "/admin";
-const SUBSCRIBE_PATH = "/subscribe";
+const ACCESS_PATH = "/access";
 
-/** Routes that belong to the billing application itself and require an
- * active subscription (in addition to being logged in). */
+/** Routes that require an authenticated account with admin-granted access. */
 function isProtectedAppRoute(pathname: string): boolean {
   if (pathname === "/") return true;
   return (
     pathname.startsWith("/products") ||
     pathname.startsWith("/bills") ||
     pathname.startsWith("/settings") ||
-    pathname.startsWith("/print")
+    pathname.startsWith("/print") ||
+    pathname.startsWith("/dues") ||
+    pathname.startsWith("/due-bills")
   );
 }
 
@@ -57,30 +58,22 @@ export async function updateSession(request: NextRequest) {
 
   // Logged-in users shouldn't see the login/signup forms again.
   if (user && (pathname.startsWith("/login") || pathname.startsWith("/signup"))) {
+    const { data: adminRow } = await supabase.from("admins").select("user_id").eq("user_id", user.id).maybeSingle();
     const url = request.nextUrl.clone();
-    url.pathname = "/";
+    url.pathname = adminRow ? "/admin" : "/";
     url.search = "";
     return NextResponse.redirect(url);
   }
 
   if (user && isProtectedAppRoute(pathname)) {
-    const { data: subscription } = await supabase
-      .from("subscriptions")
-      .select("status, end_date")
+    const { data: access } = await supabase
+      .from("user_access")
+      .select("access_granted")
       .eq("user_id", user.id)
-      .order("updated_at", { ascending: false })
-      .limit(1)
       .maybeSingle();
-
-    const isActive =
-      !!subscription &&
-      subscription.status === "active" &&
-      !!subscription.end_date &&
-      new Date(subscription.end_date).getTime() > Date.now();
-
-    if (!isActive) {
+    if (!access?.access_granted) {
       const url = request.nextUrl.clone();
-      url.pathname = SUBSCRIBE_PATH;
+      url.pathname = ACCESS_PATH;
       return NextResponse.redirect(url);
     }
   }
@@ -102,23 +95,13 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  // Once subscribed, bounce users away from the pricing page back into the app.
-  if (user && pathname.startsWith(SUBSCRIBE_PATH)) {
-    const { data: subscription } = await supabase
-      .from("subscriptions")
-      .select("status, end_date")
+  if (user && pathname.startsWith(ACCESS_PATH)) {
+    const { data: access } = await supabase
+      .from("user_access")
+      .select("access_granted")
       .eq("user_id", user.id)
-      .order("updated_at", { ascending: false })
-      .limit(1)
       .maybeSingle();
-
-    const isActive =
-      !!subscription &&
-      subscription.status === "active" &&
-      !!subscription.end_date &&
-      new Date(subscription.end_date).getTime() > Date.now();
-
-    if (isActive && request.nextUrl.searchParams.get("renew") !== "1") {
+    if (access?.access_granted) {
       const url = request.nextUrl.clone();
       url.pathname = "/";
       url.search = "";

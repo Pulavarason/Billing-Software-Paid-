@@ -32,9 +32,8 @@ function LoginForm() {
       return;
     }
 
-    // The server (middleware) decides where an authenticated user belongs —
-    // /subscribe if there's no active subscription, otherwise the app.
-    const next = searchParams.get("next") || "/subscribe";
+    const { data: adminRow } = await supabase.from("admins").select("user_id").maybeSingle();
+    const next = searchParams.get("next") || (adminRow ? "/admin" : "/");
     router.push(next);
     router.refresh();
   };
@@ -44,7 +43,7 @@ function LoginForm() {
       <form onSubmit={handleSubmit} className="space-y-4">
         {accountCreated && (
           <p className="rounded-lg bg-emerald-500/10 px-3 py-2 text-xs text-emerald-600">
-            Account created successfully. Log in to continue to payments.
+            Account created. Log in to request software access.
           </p>
         )}
         <div>

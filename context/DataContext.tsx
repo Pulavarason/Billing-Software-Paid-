@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useState,
+  useRef,
   ReactNode
 } from "react";
 import { AppData, Bill, BusinessSettings, Product } from "@/lib/types";
@@ -16,15 +17,16 @@ import {
   clearAllData,
   deleteBillFromData,
   deleteProductFromData,
-  loadData,
   parseBackupFile,
   resetToDemoData,
-  saveData,
   updateProductInData,
+  updateBillInData,
   updateSettingsInData
 } from "@/lib/storage";
 import { formatBillNumber } from "@/lib/format";
 import { useAuth } from "@/context/AuthContext";
+import { downloadExcelExport } from "@/lib/excel";
+import { createClient } from "@/lib/supabase/client";
 
 interface DataContextValue {
   data: AppData;
@@ -35,8 +37,11 @@ interface DataContextValue {
   deleteProduct: (productId: string) => void;
   addBill: (bill: Omit<Bill, "id" | "billNumber" | "createdAt">) => Bill;
   deleteBill: (billId: string) => void;
+  updateBill: (bill: Bill) => void;
+  recordPayment: (billId: string, amount: number) => void;
   updateSettings: (settings: BusinessSettings) => void;
   exportBackup: () => void;
+  exportExcel: () => void;
   importBackup: (file: File) => Promise<void>;
   resetDemoData: () => void;
   wipeAllData: () => void;
@@ -63,30 +68,43 @@ const emptyData: AppData = {
 export function DataProvider({ children }: { children: ReactNode }) {
   const { user, isLoading: isAuthLoading } = useAuth();
   const [data, setData] = useState<AppData>(emptyData);
+  const dataRef = useRef<AppData>(emptyData);
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     if (isAuthLoading) return;
 
-    const loaded = loadData(user?.id);
-    const businessName = user?.user_metadata?.business_name;
-    const shouldSetBusinessName =
-      typeof businessName === "string" && businessName.trim() && !loaded.settings.businessName;
-    const next = shouldSetBusinessName
-      ? { ...loaded, settings: { ...loaded.settings, businessName: businessName.trim() } }
-      : loaded;
-
-    if (shouldSetBusinessName) saveData(next, user?.id);
-    setData(next);
-    setIsReady(true);
+    let cancelled = false;
+    setIsReady(false);
+    const loadCloudData = async () => {
+      if (!user) { dataRef.current = emptyData; setData(emptyData); setIsReady(true); return; }
+      const supabase = createClient();
+      const { data: row, error } = await supabase.from("account_data").select("data").eq("user_id", user.id).maybeSingle();
+      if (cancelled) return;
+      if (error) console.error("Could not load account data from Supabase", error.message);
+      const businessName = user.user_metadata?.business_name;
+      const loaded = (row?.data as AppData | null) ?? emptyData;
+      const next = typeof businessName === "string" && businessName.trim() && !loaded.settings.businessName
+        ? { ...loaded, settings: { ...loaded.settings, businessName: businessName.trim() } }
+        : loaded;
+      dataRef.current = next;
+      setData(next);
+      setIsReady(true);
+      if (!row && !error) await supabase.from("account_data").upsert({ user_id: user.id, data: next });
+      else if (next !== loaded) await supabase.from("account_data").upsert({ user_id: user.id, data: next });
+    };
+    void loadCloudData();
+    return () => { cancelled = true; };
   }, [isAuthLoading, user?.id, user?.user_metadata?.business_name]);
 
   const persist = useCallback((updater: (prev: AppData) => AppData) => {
-    setData((prev) => {
-      const next = updater(prev);
-      saveData(next, user?.id);
-      return next;
-    });
+    const next = updater(dataRef.current);
+    dataRef.current = next;
+    setData(next);
+    if (user?.id) {
+      void createClient().from("account_data").upsert({ user_id: user.id, data: next, updated_at: new Date().toISOString() })
+        .then(({ error }) => { if (error) console.error("Could not save account data to Supabase", error.message); });
+    }
   }, [user?.id]);
 
   const addProduct = useCallback(
@@ -106,9 +124,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const addBill = useCallback(
     (bill: Omit<Bill, "id" | "billNumber" | "createdAt">): Bill => {
+      const grandTotal = Math.max(0, bill.grandTotal);
+      const paidAmount = Math.min(Math.max(0, bill.paidAmount ?? grandTotal), grandTotal);
       const billNumber = formatBillNumber(data.billCounter);
       const fullBill: Bill = {
         ...bill,
+        deliveryCharge: Math.max(0, bill.deliveryCharge ?? 0),
+        paidAmount,
+        dueAmount: Math.max(0, grandTotal - paidAmount),
         id: `bill_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
         billNumber,
         createdAt: new Date().toISOString()
@@ -118,6 +141,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
     },
     [persist, data.billCounter]
   );
+
+  const updateBill = useCallback((bill: Bill) => persist((prev) => updateBillInData(prev, bill)), [persist]);
+
+  const recordPayment = useCallback((billId: string, amount: number) => {
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    persist((prev) => {
+      const bill = prev.bills.find((entry) => entry.id === billId);
+      if (!bill) return prev;
+      const total = Math.max(0, bill.grandTotal);
+      const paidAmount = Math.min(total, (bill.paidAmount ?? total) + amount);
+      return updateBillInData(prev, { ...bill, paidAmount, dueAmount: Math.max(0, total - paidAmount) });
+    });
+  }, [persist]);
 
   const deleteBill = useCallback(
     (billId: string) => persist((prev) => deleteBillFromData(prev, billId)),
@@ -146,21 +182,31 @@ export function DataProvider({ children }: { children: ReactNode }) {
     URL.revokeObjectURL(url);
   }, [data]);
 
+  const exportExcel = useCallback(() => downloadExcelExport(data), [data]);
+
   const importBackup = useCallback(async (file: File) => {
     const text = await file.text();
     const parsed = parseBackupFile(text);
-    saveData(parsed, user?.id);
+    dataRef.current = parsed;
     setData(parsed);
+    if (user?.id) {
+      const { error } = await createClient().from("account_data").upsert({ user_id: user.id, data: parsed, updated_at: new Date().toISOString() });
+      if (error) throw error;
+    }
   }, [user?.id]);
 
   const resetDemoData = useCallback(() => {
     const fresh = resetToDemoData(user?.id);
+    dataRef.current = fresh;
     setData(fresh);
+    if (user?.id) void createClient().from("account_data").upsert({ user_id: user.id, data: fresh, updated_at: new Date().toISOString() });
   }, [user?.id]);
 
   const wipeAllData = useCallback(() => {
     const empty = clearAllData(user?.id);
+    dataRef.current = empty;
     setData(empty);
+    if (user?.id) void createClient().from("account_data").upsert({ user_id: user.id, data: empty, updated_at: new Date().toISOString() });
   }, [user?.id]);
 
   const nextBillNumberPreview = formatBillNumber(data.billCounter);
@@ -176,8 +222,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         deleteProduct,
         addBill,
         deleteBill,
+        updateBill,
+        recordPayment,
         updateSettings,
         exportBackup,
+        exportExcel,
         importBackup,
         resetDemoData,
         wipeAllData

@@ -14,6 +14,11 @@ function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(href + "/");
 }
 
+function activeNavItem(pathname: string) {
+  return NAV_ITEMS.filter((item) => isActive(pathname, item.href))
+    .sort((a, b) => b.href.length - a.href.length)[0];
+}
+
 function BrandMark() {
   const { data } = useData();
   return (
@@ -33,10 +38,11 @@ function BrandMark() {
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  const selectedItem = activeNavItem(pathname);
   return (
     <nav className="flex flex-1 flex-col gap-1 px-3">
       {NAV_ITEMS.map((item) => {
-        const active = isActive(pathname, item.href);
+        const active = selectedItem?.href === item.href;
         const Icon = item.icon;
         return (
           <Link
@@ -79,7 +85,7 @@ function ThemeToggle() {
 export default function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
-  const activeItem = NAV_ITEMS.find((i) => isActive(pathname, i.href));
+  const activeItem = activeNavItem(pathname);
 
   return (
     <div className="flex min-h-screen">

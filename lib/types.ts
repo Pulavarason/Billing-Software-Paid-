@@ -40,7 +40,10 @@ export interface Bill {
   items: BillItem[];
   subtotal: number;
   discount: number;
+  deliveryCharge: number;
   grandTotal: number;
+  paidAmount?: number;
+  dueAmount?: number;
 }
 
 export interface BusinessSettings {

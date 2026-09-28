@@ -54,8 +54,6 @@ export default function SignupPage() {
       return;
     }
 
-    // A brand-new account has no subscription row yet, so it belongs on
-    // /subscribe — middleware will enforce this regardless.
     await supabase.auth.signOut();
     router.push(loginUrl);
     router.refresh();
