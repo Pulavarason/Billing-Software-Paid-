@@ -37,13 +37,16 @@ export default async function AdminPage() {
   const { data: accessRows, error: accessError } = await admin
     .from("user_access")
     .select("user_id,email,business_name,paid,access_granted,updated_at");
+  const { data: adminRows } = await admin.from("admins").select("user_id");
   const accessById = new Map((accessRows ?? []).map((item) => [item.user_id, item]));
+  const adminIds = new Set((adminRows ?? []).map((item) => item.user_id));
   const rows: AdminSubscriptionRow[] = authUsers
     .map((authUser) => {
       const access = accessById.get(authUser.id);
       const metadataBusiness = authUser.user_metadata?.business_name;
       return {
         user_id: authUser.id,
+        is_admin: adminIds.has(authUser.id),
         email: access?.email || authUser.email || "(no email)",
         business_name: access?.business_name || (typeof metadataBusiness === "string" ? metadataBusiness : ""),
         paid: access?.paid ?? false,
@@ -76,7 +79,7 @@ export default async function AdminPage() {
           <SignOutButton />
         </div>
         <div className="mt-6">
-          <AdminTable rows={rows} setupError={setupError} />
+          <AdminTable rows={rows} currentAdminId={user.id} setupError={setupError} />
         </div>
       </div>
     </div>

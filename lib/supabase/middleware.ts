@@ -65,7 +65,20 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && isProtectedAppRoute(pathname)) {
+  // Admins must be recognized before the paid-account gate. The dashboard
+  // root is also a protected app route, so checking access first can send an
+  // admin to /access before their /admin redirect has a chance to run.
+  let isAdmin = false;
+  if (user && (isProtectedAppRoute(pathname) || pathname.startsWith(ADMIN_PATH))) {
+    const { data: adminRow } = await supabase
+      .from("admins")
+      .select("user_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    isAdmin = Boolean(adminRow);
+  }
+
+  if (user && isProtectedAppRoute(pathname) && !isAdmin) {
     const { data: access } = await supabase
       .from("user_access")
       .select("access_granted")
@@ -81,13 +94,7 @@ export async function updateSession(request: NextRequest) {
   // /admin is gated on the admins table, not on having a paid subscription —
   // the software owner running the panel may not be a paying customer.
   if (user && pathname.startsWith(ADMIN_PATH)) {
-    const { data: adminRow } = await supabase
-      .from("admins")
-      .select("user_id")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (!adminRow) {
+    if (!isAdmin) {
       const url = request.nextUrl.clone();
       url.pathname = "/";
       url.search = "";

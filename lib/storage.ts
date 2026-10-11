@@ -134,6 +134,11 @@ export function deleteBillFromData(data: AppData, billId: string): AppData {
   return { ...data, bills: data.bills.filter((b) => b.id !== billId) };
 }
 
+export function deleteBillsFromData(data: AppData, billIds: string[]): AppData {
+  const ids = new Set(billIds);
+  return { ...data, bills: data.bills.filter((bill) => !ids.has(bill.id)) };
+}
+
 export function updateBillInData(data: AppData, bill: Bill): AppData {
   return { ...data, bills: data.bills.map((existing) => existing.id === bill.id ? bill : existing) };
 }

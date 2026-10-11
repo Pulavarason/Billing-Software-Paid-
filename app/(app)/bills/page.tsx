@@ -12,12 +12,14 @@ import { Bill } from "@/lib/types";
 import { formatCurrency, formatDateDisplay } from "@/lib/format";
 
 export default function BillsPage() {
-  const { data, isReady, deleteBill } = useData();
+  const { data, isReady, deleteBill, deleteBills } = useData();
   const { showToast } = useToast();
 
   const [search, setSearch] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<Bill | null>(null);
+  const [selectedBillIds, setSelectedBillIds] = useState<string[]>([]);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -37,8 +39,30 @@ export default function BillsPage() {
   const handleDeleteConfirmed = () => {
     if (!deleteTarget) return;
     deleteBill(deleteTarget.id);
+    setSelectedBillIds((current) => current.filter((id) => id !== deleteTarget.id));
     showToast(`Bill ${deleteTarget.billNumber} deleted.`, "info");
     setDeleteTarget(null);
+  };
+
+  const allVisibleSelected = filtered.length > 0 && filtered.every((bill) => selectedBillIds.includes(bill.id));
+  const toggleBill = (billId: string) => {
+    setSelectedBillIds((current) => current.includes(billId)
+      ? current.filter((id) => id !== billId)
+      : [...current, billId]);
+  };
+  const toggleVisibleBills = () => {
+    const visibleIds = filtered.map((bill) => bill.id);
+    setSelectedBillIds((current) => allVisibleSelected
+      ? current.filter((id) => !visibleIds.includes(id))
+      : Array.from(new Set([...current, ...visibleIds])));
+  };
+  const handleBulkDelete = () => {
+    const count = selectedBillIds.length;
+    if (!count) return;
+    deleteBills(selectedBillIds);
+    setSelectedBillIds([]);
+    setConfirmBulkDelete(false);
+    showToast(`${count} bill${count === 1 ? "" : "s"} deleted.`, "info");
   };
 
   if (!isReady) {
@@ -71,6 +95,15 @@ export default function BillsPage() {
         )}
       </div>
 
+      {selectedBillIds.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50/70 px-4 py-3 dark:border-red-900/60 dark:bg-red-950/20">
+          <span className="text-sm font-medium text-[rgb(var(--text))]">{selectedBillIds.length} bill{selectedBillIds.length === 1 ? "" : "s"} selected</span>
+          <button type="button" onClick={() => setConfirmBulkDelete(true)} className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700">
+            <Trash2 className="h-4 w-4" /> Delete selected
+          </button>
+        </div>
+      )}
+
       {data.bills.length === 0 ? (
         <EmptyState
           icon={Receipt}
@@ -86,6 +119,8 @@ export default function BillsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[rgb(var(--border))] bg-[rgb(var(--border))]/20 text-left text-xs font-semibold uppercase tracking-wide text-[rgb(var(--text-muted))]">
+                  <th className="px-4 py-3"><input type="checkbox" aria-label="Select all visible bills" checked={allVisibleSelected} onChange={toggleVisibleBills} className="h-4 w-4 accent-red-600" /></th>
+                  <th className="px-5 py-3">S.No.</th>
                   <th className="px-5 py-3">Bill Number</th>
                   <th className="px-5 py-3">Date</th>
                   <th className="px-5 py-3">Customer</th>
@@ -95,8 +130,10 @@ export default function BillsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[rgb(var(--border))]">
-                {filtered.map((bill) => (
+                {filtered.map((bill, index) => (
                   <tr key={bill.id} className="transition hover:bg-[rgb(var(--border))]/20">
+                    <td className="px-4 py-3.5"><input type="checkbox" aria-label={`Select bill ${bill.billNumber}`} checked={selectedBillIds.includes(bill.id)} onChange={() => toggleBill(bill.id)} className="h-4 w-4 accent-red-600" /></td>
+                    <td className="px-5 py-3.5 text-[rgb(var(--text-muted))]">{index + 1}</td>
                     <td className="px-5 py-3.5 font-medium text-[rgb(var(--text))]">{bill.billNumber}</td>
                     <td className="px-5 py-3.5 text-[rgb(var(--text-muted))]">
                       {formatDateDisplay(bill.date)}
@@ -142,24 +179,29 @@ export default function BillsPage() {
           </div>
 
           {/* Mobile cards */}
-          <div className="grid grid-cols-1 gap-3 md:hidden">
-            {filtered.map((bill) => (
-              <Link
-                key={bill.id}
-                href={`/bills/${bill.id}`}
-                className="block rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] p-4 shadow-soft"
-              >
-                <div className="flex items-center justify-between">
-                  <p className="font-medium text-[rgb(var(--text))]">{bill.billNumber}</p>
-                  <p className="font-semibold text-[rgb(var(--text))]">{formatCurrency(bill.grandTotal)}</p>
-                </div>
-                <div className="mt-1 flex items-center justify-between text-xs text-[rgb(var(--text-muted))]">
-                  <span>{formatDateDisplay(bill.date)}</span>
-                  <span>{bill.customerName || "\u2014"}</span>
-                  {(bill.dueAmount ?? 0) > 0 && <span className="font-semibold text-amber-700 dark:text-amber-400">Due {formatCurrency(bill.dueAmount ?? 0)}</span>}
-                </div>
-              </Link>
+          <div className="space-y-3 md:hidden">
+            <label className="flex items-center gap-2 px-1 text-sm text-[rgb(var(--text-muted))]">
+              <input type="checkbox" aria-label="Select all visible bills" checked={allVisibleSelected} onChange={toggleVisibleBills} className="h-4 w-4 accent-red-600" />
+              Select all visible bills
+            </label>
+            <div className="grid grid-cols-1 gap-3">
+            {filtered.map((bill, index) => (
+              <div key={bill.id} className="flex items-start gap-3 rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] p-4 shadow-soft">
+                <input type="checkbox" aria-label={`Select bill ${bill.billNumber}`} checked={selectedBillIds.includes(bill.id)} onChange={() => toggleBill(bill.id)} className="mt-1 h-4 w-4 shrink-0 accent-red-600" />
+                <Link href={`/bills/${bill.id}`} className="block min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-medium text-[rgb(var(--text))]">{index + 1}. {bill.billNumber}</p>
+                    <p className="font-semibold text-[rgb(var(--text))]">{formatCurrency(bill.grandTotal)}</p>
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-[rgb(var(--text-muted))]">
+                    <span>{formatDateDisplay(bill.date)}</span>
+                    <span>{bill.customerName || "\u2014"}</span>
+                    {(bill.dueAmount ?? 0) > 0 && <span className="font-semibold text-amber-700 dark:text-amber-400">Due {formatCurrency(bill.dueAmount ?? 0)}</span>}
+                  </div>
+                </Link>
+              </div>
             ))}
+            </div>
           </div>
         </>
       )}
@@ -171,6 +213,14 @@ export default function BillsPage() {
         confirmLabel="Delete"
         onConfirm={handleDeleteConfirmed}
         onCancel={() => setDeleteTarget(null)}
+      />
+      <ConfirmDialog
+        open={confirmBulkDelete}
+        title={`Delete ${selectedBillIds.length} selected bill${selectedBillIds.length === 1 ? "" : "s"}?`}
+        description="These bills will be removed from your account data in the database. This cannot be undone. Export a backup first if you may need these records."
+        confirmLabel="Delete selected"
+        onConfirm={handleBulkDelete}
+        onCancel={() => setConfirmBulkDelete(false)}
       />
     </div>
   );

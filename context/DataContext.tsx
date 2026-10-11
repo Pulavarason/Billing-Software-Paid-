@@ -16,6 +16,7 @@ import {
   buildBackup,
   clearAllData,
   deleteBillFromData,
+  deleteBillsFromData,
   deleteProductFromData,
   parseBackupFile,
   resetToDemoData,
@@ -37,6 +38,7 @@ interface DataContextValue {
   deleteProduct: (productId: string) => void;
   addBill: (bill: Omit<Bill, "id" | "billNumber" | "createdAt">) => Bill;
   deleteBill: (billId: string) => void;
+  deleteBills: (billIds: string[]) => void;
   updateBill: (bill: Bill) => void;
   recordPayment: (billId: string, amount: number) => void;
   updateSettings: (settings: BusinessSettings) => void;
@@ -160,6 +162,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [persist]
   );
 
+  const deleteBills = useCallback(
+    (billIds: string[]) => persist((prev) => deleteBillsFromData(prev, billIds)),
+    [persist]
+  );
+
   const updateSettings = useCallback(
     (settings: BusinessSettings) =>
       persist((prev) => updateSettingsInData(prev, settings)),
@@ -222,6 +229,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         deleteProduct,
         addBill,
         deleteBill,
+        deleteBills,
         updateBill,
         recordPayment,
         updateSettings,

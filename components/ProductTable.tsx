@@ -18,6 +18,7 @@ export default function ProductTable({ products, onEdit, onDelete }: ProductTabl
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[rgb(var(--border))] bg-[rgb(var(--border))]/20 text-left text-xs font-semibold uppercase tracking-wide text-[rgb(var(--text-muted))]">
+              <th className="px-5 py-3">S.No.</th>
               <th className="px-5 py-3">Product Name</th>
               <th className="px-5 py-3">Variants</th>
               <th className="px-5 py-3">Price Range</th>
@@ -27,8 +28,9 @@ export default function ProductTable({ products, onEdit, onDelete }: ProductTabl
             </tr>
           </thead>
           <tbody className="divide-y divide-[rgb(var(--border))]">
-            {products.map((product) => (
+            {products.map((product, index) => (
               <tr key={product.id} className="transition hover:bg-[rgb(var(--border))]/20">
+                <td className="px-5 py-3.5 text-[rgb(var(--text-muted))]">{index + 1}</td>
                 <td className="px-5 py-3.5">
                   <p className="font-medium text-[rgb(var(--text))]">{product.name}</p>
                   {product.category && (
@@ -73,14 +75,14 @@ export default function ProductTable({ products, onEdit, onDelete }: ProductTabl
 
       {/* Mobile cards */}
       <div className="grid grid-cols-1 gap-3 md:hidden">
-        {products.map((product) => (
+        {products.map((product, index) => (
           <div
             key={product.id}
             className="rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] p-4 shadow-soft"
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="truncate font-medium text-[rgb(var(--text))]">{product.name}</p>
+                <p className="truncate font-medium text-[rgb(var(--text))]">{index + 1}. {product.name}</p>
                 {product.category && (
                   <p className="text-xs text-[rgb(var(--text-muted))]">{product.category}</p>
                 )}

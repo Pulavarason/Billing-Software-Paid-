@@ -21,7 +21,7 @@ function LoginForm() {
     setError(null);
     setLoading(true);
     const supabase = createClient();
-    const { error: signInError } = await supabase.auth.signInWithPassword({
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
       email,
       password
     });
@@ -32,7 +32,11 @@ function LoginForm() {
       return;
     }
 
-    const { data: adminRow } = await supabase.from("admins").select("user_id").maybeSingle();
+    const { data: adminRow } = await supabase
+      .from("admins")
+      .select("user_id")
+      .eq("user_id", signInData.user.id)
+      .maybeSingle();
     const next = searchParams.get("next") || (adminRow ? "/admin" : "/");
     router.push(next);
     router.refresh();

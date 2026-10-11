@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Search, Users, Wallet, ShieldCheck, Clock, Loader2 } from "lucide-react";
-import { setUserAccess } from "./actions";
+import { Search, Users, Wallet, ShieldCheck, Clock, Loader2, Trash2 } from "lucide-react";
+import { deleteCustomerAccount, setUserAccess } from "./actions";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 export interface AdminSubscriptionRow {
   user_id: string;
+  is_admin: boolean;
   email: string;
   business_name: string;
   paid: boolean;
@@ -71,9 +73,11 @@ function StatCard({
 
 export default function AdminTable({
   rows,
+  currentAdminId,
   setupError
 }: {
   rows: AdminSubscriptionRow[];
+  currentAdminId: string;
   setupError?: string | null;
 }) {
   const [items, setItems] = useState<AdminSubscriptionRow[]>(rows);
@@ -81,6 +85,7 @@ export default function AdminTable({
   const [actionError, setActionError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  const [deleteTarget, setDeleteTarget] = useState<AdminSubscriptionRow | null>(null);
 
   // Keep local state in sync when the server sends fresh data
   useEffect(() => {
@@ -133,6 +138,24 @@ export default function AdminTable({
   // Paid OFF -> unpaid + access revoked (same as your old "Mark unpaid")
   const togglePaid = (row: AdminSubscriptionRow) => update(row, !row.paid, !row.paid);
   const toggleAccess = (row: AdminSubscriptionRow) => update(row, row.paid, !row.access_granted);
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    const target = deleteTarget;
+    const previous = items;
+    setActionError(null);
+    setBusyId(target.user_id);
+    setItems((current) => current.filter((row) => row.user_id !== target.user_id));
+    setDeleteTarget(null);
+    try {
+      await deleteCustomerAccount(target.user_id);
+    } catch (error: unknown) {
+      setItems(previous);
+      setActionError(error instanceof Error ? error.message : "Could not delete this customer account.");
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const tabs: { id: Filter; label: string; count: number }[] = [
     { id: "all", label: "All", count: stats.total },
@@ -202,6 +225,7 @@ export default function AdminTable({
               <th className="px-4 py-3 font-semibold">Signed up</th>
               <th className="px-4 py-3 font-semibold">Paid once</th>
               <th className="px-4 py-3 font-semibold">Access</th>
+              <th className="px-4 py-3 text-right font-semibold">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -268,13 +292,26 @@ export default function AdminTable({
                       {busy && <Loader2 className="h-3.5 w-3.5 animate-spin text-[rgb(var(--text-muted))]" />}
                     </div>
                   </td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      type="button"
+                      onClick={() => setDeleteTarget(row)}
+                      disabled={busy || row.is_admin || row.user_id === currentAdminId}
+                      aria-label={`Delete account ${row.email}`}
+                      title={row.is_admin || row.user_id === currentAdminId ? "Admin accounts are protected" : "Delete customer account"}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-2.5 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/30"
+                    >
+                      {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                      Delete
+                    </button>
+                  </td>
                 </tr>
               );
             })}
 
             {visible.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-sm text-[rgb(var(--text-muted))]">
+                <td colSpan={6} className="px-4 py-10 text-center text-sm text-[rgb(var(--text-muted))]">
                   {setupError
                     ? "Could not load accounts. See the message above."
                     : items.length === 0
@@ -286,6 +323,14 @@ export default function AdminTable({
           </tbody>
         </table>
       </div>
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title={`Delete ${deleteTarget?.email ?? "this customer"}?`}
+        description="This permanently deletes the customer's login and their products, bills, access, and related account records from this Supabase project. They will no longer be able to sign in. This cannot be undone."
+        confirmLabel="Delete account"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }
