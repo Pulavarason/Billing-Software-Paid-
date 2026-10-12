@@ -78,6 +78,15 @@ export async function updateSession(request: NextRequest) {
     isAdmin = Boolean(adminRow);
   }
 
+  // Admin accounts use the admin panel as their landing page, including when
+  // a login-time role lookup races the newly persisted browser session.
+  if (user && isAdmin && isProtectedAppRoute(pathname)) {
+    const url = request.nextUrl.clone();
+    url.pathname = ADMIN_PATH;
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
+
   if (user && isProtectedAppRoute(pathname) && !isAdmin) {
     const { data: access } = await supabase
       .from("user_access")

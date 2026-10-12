@@ -85,3 +85,39 @@ textarea:focus-visible,
   background: #ffffff;
   color: #111111;
 }
+
+/* Dashboard-only invoice preview: let the page fit the available card width. */
+.invoice-preview {
+  width: 100%;
+  min-height: 0;
+  overflow-wrap: anywhere;
+}
+
+.invoice-preview table {
+  table-layout: fixed;
+}
+
+.invoice-preview th:first-child,
+.invoice-preview td:first-child {
+  width: 34%;
+  overflow-wrap: anywhere;
+}
+
+.invoice-preview th:nth-child(2),
+.invoice-preview td:nth-child(2) {
+  width: 13%;
+  overflow-wrap: anywhere;
+}
+
+.invoice-preview th:nth-child(3),
+.invoice-preview td:nth-child(3) {
+  width: 10%;
+}
+
+.invoice-preview th:nth-child(4),
+.invoice-preview td:nth-child(4),
+.invoice-preview th:nth-child(5),
+.invoice-preview td:nth-child(5) {
+  width: 21.5%;
+  overflow-wrap: anywhere;
+}

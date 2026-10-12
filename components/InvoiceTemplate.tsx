@@ -6,15 +6,16 @@ interface InvoiceTemplateProps {
   bill: Bill;
   settings: BusinessSettings;
   innerRef?: Ref<HTMLDivElement>;
+  preview?: boolean;
 }
 
-export default function InvoiceTemplate({ bill, settings, innerRef }: InvoiceTemplateProps) {
+export default function InvoiceTemplate({ bill, settings, innerRef, preview = false }: InvoiceTemplateProps) {
   const hasGst = Boolean(settings.gstNumber && settings.gstNumber.trim().length > 0);
 
   return (
     <div
       ref={innerRef}
-      className="invoice-a5 mx-auto flex flex-col p-6 text-[13px] leading-snug text-black"
+      className={`invoice-a5 mx-auto flex flex-col text-[13px] leading-snug text-black ${preview ? "invoice-preview p-4 sm:p-6" : "p-6"}`}
       style={{ fontFamily: "Arial, Helvetica, sans-serif" }}
     >
       {/* Header */}

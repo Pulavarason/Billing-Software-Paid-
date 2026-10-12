@@ -2,13 +2,12 @@
 
 import { FormEvent, Suspense, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import AuthCard from "@/components/AuthCard";
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState(() => searchParams.get("email") ?? "");
   const [password, setPassword] = useState("");
@@ -37,9 +36,11 @@ function LoginForm() {
       .select("user_id")
       .eq("user_id", signInData.user.id)
       .maybeSingle();
-    const next = searchParams.get("next") || (adminRow ? "/admin" : "/");
-    router.push(next);
-    router.refresh();
+    // Admin role always takes priority over a stale or generic `next` URL.
+    // A full navigation also lets middleware re-check the freshly written
+    // Supabase session before rendering the destination.
+    const next = adminRow ? "/admin" : searchParams.get("next") || "/";
+    window.location.replace(next);
   };
 
   return (

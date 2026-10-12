@@ -94,10 +94,10 @@ export default function AdminTable({
 
   const stats = useMemo(
     () => ({
-      total: items.length,
-      paid: items.filter((r) => r.paid).length,
-      granted: items.filter((r) => r.access_granted).length,
-      pending: items.filter((r) => !r.access_granted).length
+      total: items.filter((r) => !r.is_admin).length,
+      paid: items.filter((r) => !r.is_admin && r.paid).length,
+      granted: items.filter((r) => !r.is_admin && r.access_granted).length,
+      pending: items.filter((r) => !r.is_admin && !r.access_granted).length
     }),
     [items]
   );
@@ -105,8 +105,8 @@ export default function AdminTable({
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     return items.filter((r) => {
-      if (filter === "pending" && r.access_granted) return false;
-      if (filter === "granted" && !r.access_granted) return false;
+      if (filter === "pending" && (r.is_admin || r.access_granted)) return false;
+      if (filter === "granted" && (r.is_admin || !r.access_granted)) return false;
       if (!q) return true;
       return r.email.toLowerCase().includes(q) || r.business_name.toLowerCase().includes(q);
     });
@@ -256,7 +256,7 @@ export default function AdminTable({
                     })}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2.5">
+                    {row.is_admin ? <span className="text-[rgb(var(--text-muted))]">-</span> : <div className="flex items-center gap-2.5">
                       <Toggle
                         checked={row.paid}
                         disabled={busy}
@@ -270,10 +270,10 @@ export default function AdminTable({
                       >
                         {row.paid ? "Paid" : "Unpaid"}
                       </span>
-                    </div>
+                    </div>}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2.5">
+                    {row.is_admin ? <span className="text-[rgb(var(--text-muted))]">-</span> : <div className="flex items-center gap-2.5">
                       <Toggle
                         checked={row.access_granted}
                         disabled={busy}
@@ -290,7 +290,7 @@ export default function AdminTable({
                         {row.access_granted ? "Granted" : "Pending"}
                       </span>
                       {busy && <Loader2 className="h-3.5 w-3.5 animate-spin text-[rgb(var(--text-muted))]" />}
-                    </div>
+                    </div>}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <button
